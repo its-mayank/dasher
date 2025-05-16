@@ -1,3 +1,4 @@
+import pandas as pd
 import streamlit as st
 st.set_page_config(layout="wide")
 import re
@@ -5,7 +6,7 @@ from helper import load_data, load_users, convert_to_df, get_prices_batch, highl
 import constants
 
 def main():
-    mock = True #Variable for mocking and not reaching rate limiting
+    mock = False #Variable for mocking and not reaching rate limiting
     __PATH = "/Users/bigdawgs/stock-dashboard/data/"
         
     # Use session state to control the "popup"
@@ -87,7 +88,7 @@ def main():
             selected_users_data.append(convert_to_df(load_data(user, __PATH)))
             
     #Now need to create a Master df which have all the information
-    if selected_users_data:
+    if selected_users_data and len(st.session_state.master_df) == 0:
         master_df = selected_users_data[0]
         master_df.set_index(constants.name, inplace=True)
         for df in selected_users_data[1:]:
@@ -118,28 +119,32 @@ def main():
         master_df[constants.pnl] = master_df[constants.current_value] - master_df[constants.investment_value]
         master_df[constants.pnl_percentage] = ((master_df[constants.current_price] - master_df[constants.buy_price]) / master_df[constants.buy_price]) * 100
 
-        # Optional: round for cleaner output
-        master_df[constants.pnl] = master_df[constants.pnl].round(2)
-        master_df[constants.pnl_percentage] = master_df[constants.pnl_percentage].round(2)
-        master_df[constants.investment_value] = master_df[constants.investment_value].round(2)
-        master_df[constants.current_value] = master_df[constants.current_value].round(2)
+        # Round for display
+        for col in [constants.pnl, constants.pnl_percentage, constants.investment_value, constants.current_value]:
+            master_df[col] = master_df[col].round(2)
 
-        st.title("📈 Stock Portfolio Overview")
+        #Caching the combined df so as to search easily
+        st.session_state.master_df = master_df
         
-        search_query = st.text_input("🔍 Search by Symbol or Name").strip()
+    st.title("📈 Stock Portfolio Overview")
+    if 'master_df' not in st.session_state:
+        st.session_state.master_df = pd.DataFrame()
+    
+    search_query = st.text_input("🔍 Search by Symbol or Name").strip()
 
-        # Ensure empty query doesn't break or fetch all rows
-        if search_query:
-            search_query_clean = re.escape(search_query.lower())  
+    # Ensure empty query doesn't break or fetch all rows
+    if search_query:
+        search_query_clean = re.escape(search_query.lower())  
 
-            filtered_df = master_df[
-                master_df[constants.symbol].str.contains(search_query_clean, case=False, na=False) |
-                master_df[constants.name].str.contains(search_query_clean, case=False, na=False)
-            ]
-        else:
-            filtered_df = master_df 
-        
-        # ---- Styled table ----
+        filtered_df = st.session_state.master_df[
+            st.session_state.master_df[constants.symbol].str.contains(search_query_clean, case=False, na=False) |
+            st.session_state.master_df[constants.name].str.contains(search_query_clean, case=False, na=False)
+        ]
+    else:
+        filtered_df = st.session_state.master_df 
+    
+    # ---- Styled table ----
+    if not filtered_df.empty:
         st.dataframe(
             filtered_df.style
             .map(highlight_pl, subset=[constants.pnl, constants.pnl_percentage])
@@ -154,17 +159,20 @@ def main():
             }),
             use_container_width=True
         )
+    else:
+        st.info("Empty Dataframe!")
 
 
-        #### Footer Section
-        total_invested = master_df[constants.investment_value].sum()
-        total_current = master_df[constants.current_value].sum()
-        total_pnl = master_df[constants.pnl].sum()
+    
+    #### Footer Section
+    st.markdown("---")
+    st.markdown("### 📊 Portfolio Summary for Selected Users!")
+    if not st.session_state.master_df.empty:
+        total_invested = st.session_state.master_df[constants.investment_value].sum()
+        total_current = st.session_state.master_df[constants.current_value].sum()
+        total_pnl = st.session_state.master_df[constants.pnl].sum()
         total_pnl_percentage = (total_pnl / total_invested * 100) if total_invested else 0.0
-
-        st.markdown("---")
-        st.markdown("### 📊 Portfolio Summary")
-
+        
         col1, col2, col3 = st.columns(3)
 
         col1.markdown(
@@ -187,7 +195,8 @@ def main():
             """,
             unsafe_allow_html=True
         )
-
+    else:
+        st.info("Select some users to see the total value")
         
 if __name__ == "__main__":
     main()
