@@ -1,2 +1,2 @@
-data/Mayank copy.json
-data/Mayank.json
+data/*.json
+test.py

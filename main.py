@@ -105,13 +105,13 @@ def main():
                     master_df.loc[name] = row
                      
         master_df.reset_index(inplace=True)
-        constants.symbols = master_df[constants.symbol].unique().tolist()
-        
+                
         if mock:
             master_df[constants.current_price] = master_df[constants.buy_price] * 1.10
         else:    
-            constants.symbol_to_price = get_prices_batch(constants.symbols)
-            master_df[constants.current_price] = master_df[constants.symbol].map(constants.symbol_to_price)
+            symbols = master_df[constants.symbol].unique().tolist()
+            symbol_to_price = get_prices_batch(symbols)
+            master_df[constants.current_price] = master_df[constants.symbol].map(symbol_to_price)
         
         master_df[constants.investment_value] = master_df[constants.buy_price] * master_df[constants.quantity]
         master_df[constants.current_value] = master_df[constants.current_price] * master_df[constants.quantity]
