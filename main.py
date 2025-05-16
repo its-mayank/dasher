@@ -132,7 +132,6 @@ def main():
     
     search_query = st.text_input("🔍 Search by Symbol or Name").strip()
 
-    # Ensure empty query doesn't break or fetch all rows
     if search_query:
         search_query_clean = re.escape(search_query.lower())  
 
@@ -160,10 +159,8 @@ def main():
             use_container_width=True
         )
     else:
-        st.info("Empty Dataframe!")
+        st.info("Empty Dataframe! Select some users to see the portfolio")
 
-
-    
     #### Footer Section
     st.markdown("---")
     st.markdown("### 📊 Portfolio Summary for Selected Users!")
