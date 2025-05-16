@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 st.set_page_config(layout="wide")
 import re
-from helper import load_data, load_users, convert_to_df, get_prices_batch, highlight_pl, process_uploaded
+from helper import load_data, load_users, convert_to_df, get_prices_batch, highlight_pl, process_uploaded, buy_stock
 import constants
 
 def main():
@@ -12,16 +12,68 @@ def main():
     # Use session state to control the "popup"
     if "show_uploader" not in st.session_state:
         st.session_state.show_uploader = False
+    
+    if 'update_user' not in st.session_state:
+        st.session_state.update_user = False
 
-    col1, col2 = st.columns([10, 1]) 
+    col1, col2, col3 = st.columns([9, 1.5, 1.5]) 
     
     with col1:
         st.title("Stock Dashboard")
         all_users = load_users(__PATH)
         
-    with col2:
+    with col3:
         if st.button("📤 Upload File"):
             st.session_state.show_uploader = True
+    
+    with col2:
+        if st.button("Update User"):
+            st.session_state.update_user = True
+    
+    if st.session_state.update_user:
+        selected_user = st.selectbox("Select a User to update", all_users, index=None)
+
+        if selected_user:
+            col1, col2, _ = st.columns([0.13, 0.13, 1])
+
+            with col1:
+                buy_clicked = st.button("🟢 Buy a Stock", help="Buy new shares for this user")
+
+            with col2:
+                sell_clicked = st.button("🔴 Sell a Stock", help="Sell existing shares for this user")
+
+            if buy_clicked or sell_clicked:
+                action = "Buy" if buy_clicked else "Sell"
+                
+                with st.form(f"{action.lower()}_stock_form"):
+                    st.markdown(f"### {action} Stock for {selected_user}")
+
+                    symbol = st.text_input("Stock Symbol (for ex. TCS)", key=f"{action}_symbol")
+                    name = st.text_input("Company Name (for ex. Tata Consultancy Services)", key=f"{action}_name")
+                    quantity = st.number_input("Quantity", min_value=1, step=1, key=f"{action}_qty")
+                    price = st.number_input(f"{action} Price (₹)", min_value=0.0, step=0.1, key=f"{action}_price")
+
+                    submitted = st.form_submit_button(f"{action}")
+
+                    if submitted:
+                        if action == "Buy":
+                            done = buy_stock(selected_user, symbol, name, quantity, price, __PATH)
+                            if not done:
+                                st.warning("Could not complete the buy transaction")
+                            else:
+                                st.success(f"{action} order recorded:")
+                                st.write({
+                                    "User": selected_user,
+                                    "Symbol": symbol.upper(),
+                                    "Name": name,
+                                    "Quantity": int(quantity),
+                                    f"{action} Price": float(price)
+                                })
+                        elif action == "Sell":
+                            pass
+                        else:
+                            raise ValueError("Not a valid action!")
+                        
 
     if st.session_state.show_uploader:
         with st.expander("Upload your file", expanded=True):
@@ -51,7 +103,7 @@ def main():
             st.session_state.selected_users.append(selected_user)
             st.rerun()
     else:
-        st.info("All users have been selected.")
+        st.success("All users have been selected.")
         
     col1, col2 = st.columns([12, 1])
 
@@ -159,7 +211,7 @@ def main():
             use_container_width=True
         )
     else:
-        st.info("Empty Dataframe! Select some users to see the portfolio")
+        st.warning("Empty Dataframe! Select some users to see the portfolio")
 
     #### Footer Section
     st.markdown("---")
@@ -193,7 +245,7 @@ def main():
             unsafe_allow_html=True
         )
     else:
-        st.info("Select some users to see the total value")
+        st.warning("Select some users to see the total value")
         
 if __name__ == "__main__":
     main()

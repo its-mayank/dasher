@@ -9,7 +9,7 @@ def load_users(path: str) -> list:
     json_list = [f for f in os.listdir(path) if f.endswith('.json')]
     return [f.replace('.json', '') for f in json_list]
 
-def load_data(username: str, path: str) -> dict:
+def load_data(username: str, path: str) -> list:
     with open(path + username + ".json", "r") as f:
         data = json.load(f)
     return data['data']
@@ -64,3 +64,36 @@ def highlight_pl(val):
 
 def process_uploaded(uploaded_data):
     pass
+
+def buy_stock(user: str, sym: str, name: str, quantity: int, price: float, path: str) -> bool:
+    user_data = load_data(user, path)
+    found = False
+    
+    try:
+        for stock in user_data:
+            if stock['Symbol'] == sym:
+                found = True
+                new_quantity = stock['Quantity'] + quantity
+                new_price = ((stock['Quantity'] * stock['Buy Price']) + (quantity * price)/ new_quantity)
+                stock['Quantity'] = new_quantity
+                stock['Buy Price'] = new_price
+
+        if not found:
+            user_data.append(
+                {
+                    "Name": name,
+                    "Symbol": sym,
+                    "Quantity": quantity,
+                    "Buy Price": price
+                }
+            )
+
+        result = {
+            'data': user_data
+        }
+        with open(path + user + '.json', 'w') as f:
+            json.dump(result, f, indent=4)
+            return True
+    except Exception as e:
+        print(f"Cannot buy the stock for {user} due to {e}")
+        return False
